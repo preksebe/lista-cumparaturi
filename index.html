@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Lista de cumpărături</title>
+<meta name="description" content="Lista de cumpărături comună, fără cont.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#f4f6f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151a17" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f7d4f'/%3E%3Cpath d='M18 33l9 9 19-20' stroke='white' stroke-width='7' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Lista de cumpărături</h1>
+    <p class="who" id="who" hidden>Scrii ca <strong id="who-name"></strong> · <button type="button" class="link" id="change-name">Schimbă numele</button></p>
+  </header>
+
+  <section class="card name-card" id="name-card" hidden>
+    <form id="name-form" autocomplete="off">
+      <label for="name-input" class="label">Cum te cheamă?</label>
+      <p class="hint">Numele apare lângă ce adaugi. Îl ținem minte pe acest telefon, fără cont și fără parolă.</p>
+      <div class="row">
+        <input type="text" id="name-input" maxlength="40" placeholder="De exemplu, Vladut" enterkeyhint="done" required>
+        <button type="submit" class="btn">Continuă</button>
+      </div>
+    </form>
+  </section>
+
+  <main id="main" hidden>
+    <form class="card add" id="add-form" autocomplete="off">
+      <label for="add-name" class="label">Ce trebuie luat?</label>
+      <div class="add-row">
+        <input type="text" id="add-name" maxlength="80" placeholder="Lapte, pâine, roșii…" enterkeyhint="send" required>
+        <div class="stepper" aria-label="Cantitate">
+          <button type="button" class="step" id="add-minus" aria-label="Mai puțin">−</button>
+          <output id="add-qty" aria-live="polite">1</output>
+          <button type="button" class="step" id="add-plus" aria-label="Mai mult">+</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-wide">Adaugă pe listă</button>
+    </form>
+
+    <section class="list-section">
+      <h2>De luat <span class="count" id="todo-count"></span></h2>
+      <ul class="items" id="todo"></ul>
+      <p class="empty" id="todo-empty" hidden>Lista e goală. Adaugă primul produs mai sus.</p>
+    </section>
+
+    <section class="list-section done-section" id="done-section" hidden>
+      <div class="section-head">
+        <h2>Luate <span class="count" id="done-count"></span></h2>
+        <button type="button" class="link danger-link" id="clear-done">Scoate-le de pe listă</button>
+      </div>
+      <ul class="items" id="done"></ul>
+    </section>
+  </main>
+
+  <p class="status" id="status" role="status">Se încarcă lista…</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
