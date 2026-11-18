@@ -22,7 +22,8 @@ let addQty = 1;
 let photoTarget = null;
 
 const ICON_CAMERA = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.3l1.2-1.8c.3-.4.7-.7 1.2-.7h3.6c.5 0 .9.3 1.2.7L16.2 6h1.3A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12.3" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
-const ICON_TRASH = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_BUBBLE = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+const ICON_TRASH ='<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 // ---------- Numele (doar pe acest dispozitiv) ----------
 function readName() {
@@ -197,6 +198,7 @@ function buildItem(id) {
     </div>
     <p class="meta"></p>
     <div class="actions">
+      <button type="button" class="icon-btn talk" data-cact="toggle" aria-label="Comentarii" aria-expanded="false">${ICON_BUBBLE}<span class="badge" hidden></span></button>
       <button type="button" class="icon-btn camera" data-act="camera" aria-label="Poză">${ICON_CAMERA}</button>
       <button type="button" class="thumb" data-act="photo-toggle" aria-label="Mărește poza"><img alt=""></button>
       <button type="button" class="del" data-act="delete">Șterge</button>
@@ -207,6 +209,13 @@ function buildItem(id) {
         <button type="button" class="icon-btn" data-act="camera" aria-label="Înlocuiește poza">${ICON_CAMERA}</button>
         <button type="button" class="icon-btn" data-act="photo-remove" aria-label="Scoate poza">${ICON_TRASH}</button>
       </div>
+    </div>
+    <div class="thread">
+      <ul class="comments"></ul>
+      <form class="comment-form" autocomplete="off">
+        <textarea class="comment-input" rows="1" maxlength="1000" enterkeyhint="send" aria-label="Comentariu"></textarea>
+        <button type="submit" class="btn btn-small">Trimite</button>
+      </form>
     </div>`;
   return li;
 }
@@ -240,6 +249,7 @@ function fillItem(li, it) {
     const url = photoUrl(it.photo_path);
     for (const img of li.querySelectorAll('.thumb img, .big img')) if (img.getAttribute('src') !== url) img.src = url;
   }
+  if (typeof fillComments === 'function') fillComments(li, it);
 }
 
 // Casutele de text cresc pe cate randuri au nevoie, ca numele lungi sa se vada intregi.
