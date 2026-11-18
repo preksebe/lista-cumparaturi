@@ -118,6 +118,7 @@ function renderRecipes() {
     if (list.children[idx] !== el) list.insertBefore(el, list.children[idx] || null);
   });
   $('recipes-empty').hidden = sorted.length > 0;
+  render(); // marimile de pachete apar si pe lista ("1 pachet × 250 g")
 }
 
 // ---------- Date ----------

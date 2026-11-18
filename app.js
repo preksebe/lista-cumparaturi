@@ -230,14 +230,22 @@ function fillItem(li, it) {
   autosize(input);
   li.querySelector('output').textContent = it.qty;
   li.querySelector('[data-act="minus"]').disabled = it.qty <= 1;
+  // Venit din reteta, cu marime de pachet: informatia principala e numarul de pachete ("2 pachete × 250 g"),
+  // iar gramele necesare apar secundar ("necesar 20 g"). Fara pachet: gramele raman principale.
   const grams = fmtGrams(it.grams);
+  const pack = grams && typeof packs !== 'undefined' ? packs.get(packKey(it.name)) : null;
   const meta = li.querySelector('.meta');
   meta.textContent = `adăugat de${NBSP}${it.added_by}${NBSP}· ${whenText(it.created_at)}`;
   if (grams) {
     const g = document.createElement('strong');
     g.className = 'grams';
-    g.textContent = grams;
-    meta.prepend(g, `${NBSP}· `);
+    if (pack) {
+      g.textContent = `${it.qty}${NBSP}${packWord(it.qty)}${NBSP}×${NBSP}${fmtGrams(pack.grams)}`;
+      meta.prepend(g, `${NBSP}· necesar${NBSP}${grams}${NBSP}· `);
+    } else {
+      g.textContent = grams;
+      meta.prepend(g, `${NBSP}· `);
+    }
   }
 
   const hasPhoto = !!it.photo_path, busy = uploading.has(it.id);
