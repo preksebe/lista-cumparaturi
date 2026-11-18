@@ -63,10 +63,11 @@ function fillComments(li, it) {
   }
   if (!open) return;
 
+  // Cel mai nou comentariu primul, imediat sub campul de scris.
   const ul = li.querySelector('.comments');
   const wanted = new Set(list.map(c => String(c.id)));
   [...ul.children].forEach(el => { if (!wanted.has(el.dataset.cid)) el.remove(); });
-  list.forEach((c, idx) => {
+  [...list].reverse().forEach((c, idx) => {
     let el = ul.querySelector(`[data-cid="${c.id}"]`);
     if (!el) el = buildComment(c);
     el.querySelector('.c-time').textContent = whenText(c.created_at);

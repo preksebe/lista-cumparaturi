@@ -211,11 +211,11 @@ function buildItem(id) {
       </div>
     </div>
     <div class="thread">
-      <ul class="comments"></ul>
       <form class="comment-form" autocomplete="off">
         <textarea class="comment-input" rows="1" maxlength="1000" enterkeyhint="send" aria-label="Comentariu"></textarea>
         <button type="submit" class="btn btn-small">Trimite</button>
       </form>
+      <ul class="comments"></ul>
     </div>`;
   return li;
 }
