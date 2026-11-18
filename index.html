@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Lista de cumpărături</title>
-<meta name="description" content="Lista de cumpărături comună, fără cont.">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#f4f6f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#151a17" media="(prefers-color-scheme: dark)">
@@ -18,15 +17,14 @@
 <div class="page">
   <header class="top">
     <h1>Lista de cumpărături</h1>
-    <p class="who" id="who" hidden>Scrii ca <strong id="who-name"></strong> · <button type="button" class="link" id="change-name">Schimbă numele</button></p>
+    <p class="who" id="who" hidden><strong id="who-name"></strong> · <button type="button" class="link" id="change-name">Schimbă numele</button></p>
   </header>
 
   <section class="card name-card" id="name-card" hidden>
     <form id="name-form" autocomplete="off">
       <label for="name-input" class="label">Cum te cheamă?</label>
-      <p class="hint">Numele apare lângă ce adaugi. Îl ținem minte pe acest telefon, fără cont și fără parolă.</p>
       <div class="row">
-        <input type="text" id="name-input" maxlength="40" placeholder="De exemplu, Vladut" enterkeyhint="done" required>
+        <input type="text" id="name-input" maxlength="40" enterkeyhint="done" required>
         <button type="submit" class="btn">Continuă</button>
       </div>
     </form>
@@ -36,20 +34,19 @@
     <form class="card add" id="add-form" autocomplete="off">
       <label for="add-name" class="label">Ce trebuie luat?</label>
       <div class="add-row">
-        <input type="text" id="add-name" maxlength="80" placeholder="Lapte, pâine, roșii…" enterkeyhint="send" required>
+        <input type="text" id="add-name" maxlength="80" enterkeyhint="send" required>
         <div class="stepper" aria-label="Cantitate">
           <button type="button" class="step" id="add-minus" aria-label="Mai puțin">−</button>
           <output id="add-qty" aria-live="polite">1</output>
           <button type="button" class="step" id="add-plus" aria-label="Mai mult">+</button>
         </div>
       </div>
-      <button type="submit" class="btn btn-wide">Adaugă pe listă</button>
+      <button type="submit" class="btn btn-wide">Adaugă</button>
     </form>
 
     <section class="list-section">
       <h2>De luat <span class="count" id="todo-count"></span></h2>
       <ul class="items" id="todo"></ul>
-      <p class="empty" id="todo-empty" hidden>Lista e goală. Adaugă primul produs mai sus.</p>
     </section>
 
     <section class="list-section done-section" id="done-section" hidden>
@@ -61,7 +58,8 @@
     </section>
   </main>
 
-  <p class="status" id="status" role="status">Se încarcă lista…</p>
+  <p class="status" id="status" role="status" hidden></p>
+  <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>

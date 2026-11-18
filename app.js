@@ -1,10 +1,13 @@
-// Lista de cumparaturi comuna, fara cont. Datele stau in Supabase (tabelul shopping_items).
+// Lista de cumparaturi comuna, fara cont. Datele stau in Supabase (tabelul shopping_items),
+// pozele in Supabase Storage (bucket-ul lista-poze).
 // Cheia de mai jos e cea PUBLICA (publishable): e facuta sa stea in browser, iar regulile din baza
-// ii permit sa lucreze doar cu tabelul listei.
+// ii permit sa lucreze doar cu tabelul listei si cu bucket-ul ei de poze.
 const SUPABASE_URL = 'https://vlyumivkyfivholhgfda.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_7LsjX6z9owt44sliS-6fsQ_Lt5-jWSZ';
+const BUCKET = 'lista-poze';
 const NAME_KEY = 'lista-cumparaturi-nume';
 const NBSP = ' ';
+const MAX_SIDE = 1200;
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
 const $ = id => document.getElementById(id);
@@ -12,15 +15,21 @@ const $ = id => document.getElementById(id);
 const items = new Map();      // id -> rand din baza
 const els = new Map();        // id -> <li>
 const qtyTimers = new Map();  // id -> timer (cantitatea se trimite dupa o scurta pauza)
+const uploading = new Set();  // id-uri cu poza in curs de incarcare
+const openPhotos = new Set(); // id-uri cu poza marita
 let me = readName();
 let addQty = 1;
+let photoTarget = null;
+
+const ICON_CAMERA = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.3l1.2-1.8c.3-.4.7-.7 1.2-.7h3.6c.5 0 .9.3 1.2.7L16.2 6h1.3A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12.3" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 // ---------- Numele (doar pe acest dispozitiv) ----------
 function readName() {
   try { return (localStorage.getItem(NAME_KEY) || '').trim(); } catch (e) { return ''; }
 }
 function saveName(name) {
-  try { localStorage.setItem(NAME_KEY, name); } catch (e) { /* fara stocare: tinem numele doar cat e pagina deschisa */ }
+  try { localStorage.setItem(NAME_KEY, name); } catch (e) { /* fara stocare: numele ramane cat e pagina deschisa */ }
 }
 function showNameCard(show) {
   $('name-card').hidden = !show;
@@ -37,56 +46,137 @@ $('name-form').addEventListener('submit', e => {
 });
 $('change-name').addEventListener('click', () => showNameCard(true));
 
-// ---------- Stare ----------
-function setStatus(text, bad = false) {
-  $('status').textContent = text;
-  $('status').classList.toggle('bad', bad);
+// ---------- Semn de problema (apare doar cand ceva nu merge) ----------
+function problem(text) {
+  $('status').textContent = text || '';
+  $('status').hidden = !text;
 }
 function failed(err) {
   console.error(err);
-  setStatus('Nu s-a putut salva. Verifică internetul, apoi reîncearcă.', true);
+  problem('Nu s-a salvat');
   load();
 }
 
-// ---------- Afisare ----------
-function whenText(iso) {
-  const d = new Date(iso), now = new Date();
-  const time = d.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
-  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const diff = Math.round((day(now) - day(d)) / 86400000);
-  if (diff === 0) return `azi,${NBSP}${time}`;
-  if (diff === 1) return `ieri,${NBSP}${time}`;
-  return d.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' }).replace(' ', NBSP);
+// ---------- Poze ----------
+const photoUrl = path => `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}`;
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = e => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
+const toBlob = (canvas, type, q) => new Promise(r => canvas.toBlob(r, type, q));
+
+// Micsoreaza poza in browser: latura mare maximum 1200 px, WebP (sau JPEG unde WebP nu merge).
+async function shrink(file) {
+  let src;
+  try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { src = await loadImage(file); }
+  const w = src.width, h = src.height, s = Math.min(1, MAX_SIDE / Math.max(w, h));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * s); canvas.height = Math.round(h * s);
+  canvas.getContext('2d').drawImage(src, 0, 0, canvas.width, canvas.height);
+  let blob = await toBlob(canvas, 'image/webp', 0.8);
+  if (!blob || blob.type !== 'image/webp') blob = await toBlob(canvas, 'image/jpeg', 0.82);
+  if (blob.size > 900 * 1024) blob = await toBlob(canvas, 'image/jpeg', 0.65);
+  return blob;
 }
 
+async function removeFiles(paths) {
+  const list = paths.filter(Boolean);
+  if (!list.length) return;
+  const { error } = await sb.storage.from(BUCKET).remove(list);
+  if (error) console.error(error);
+}
+
+async function setPhoto(id, file) {
+  const it = items.get(id);
+  if (!it || !file) return;
+  uploading.add(id); render();
+  try {
+    const blob = await shrink(file);
+    const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
+    const path = `${id}/${Date.now()}.${ext}`;
+    const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: '31536000' });
+    if (up.error) throw up.error;
+    const old = items.get(id)?.photo_path;
+    await update(id, { photo_path: path });
+    if (old && old !== path) removeFiles([old]);
+  } catch (err) {
+    failed(err);
+  } finally {
+    uploading.delete(id); render();
+  }
+}
+
+async function clearPhoto(id) {
+  const it = items.get(id);
+  if (!it || !it.photo_path) return;
+  const old = it.photo_path;
+  openPhotos.delete(id);
+  await update(id, { photo_path: null });
+  removeFiles([old]);
+}
+
+$('photo-input').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  const id = photoTarget;
+  photoTarget = null; e.target.value = '';
+  if (file && id) setPhoto(id, file);
+});
+
+// ---------- Afisare ----------
 function buildItem(id) {
   const li = document.createElement('li');
   li.className = 'item';
   li.dataset.id = id;
   li.innerHTML = `
     <button type="button" class="check" data-act="toggle"><span></span></button>
-    <textarea class="item-name" rows="1" maxlength="80" enterkeyhint="done" aria-label="Numele produsului"></textarea>
+    <textarea class="item-name" rows="1" maxlength="80" enterkeyhint="done" aria-label="Produs"></textarea>
     <div class="stepper">
       <button type="button" class="step" data-act="minus" aria-label="Mai puțin">−</button>
       <output></output>
       <button type="button" class="step" data-act="plus" aria-label="Mai mult">+</button>
     </div>
     <p class="meta"></p>
-    <div class="actions"><button type="button" class="del" data-act="delete">Șterge</button></div>`;
+    <div class="actions">
+      <button type="button" class="icon-btn camera" data-act="camera" aria-label="Poză">${ICON_CAMERA}</button>
+      <button type="button" class="thumb" data-act="photo-toggle" aria-label="Mărește poza"><img alt=""></button>
+      <button type="button" class="del" data-act="delete">Șterge</button>
+    </div>
+    <div class="photo-big">
+      <button type="button" class="big" data-act="photo-toggle" aria-label="Micșorează poza"><img alt=""></button>
+      <div class="photo-tools">
+        <button type="button" class="icon-btn" data-act="camera" aria-label="Înlocuiește poza">${ICON_CAMERA}</button>
+        <button type="button" class="icon-btn" data-act="photo-remove" aria-label="Scoate poza">${ICON_TRASH}</button>
+      </div>
+    </div>`;
   return li;
 }
 
 function fillItem(li, it) {
   li.classList.toggle('done', it.done);
   const check = li.querySelector('.check');
-  check.setAttribute('aria-label', it.done ? `Pune „${it.name}” înapoi pe listă` : `Marchează „${it.name}” ca luat`);
+  check.setAttribute('aria-label', it.name);
   check.setAttribute('aria-pressed', String(it.done));
   const input = li.querySelector('.item-name');
   if (document.activeElement !== input && input.value !== it.name) input.value = it.name;
   autosize(input);
   li.querySelector('output').textContent = it.qty;
   li.querySelector('[data-act="minus"]').disabled = it.qty <= 1;
-  li.querySelector('.meta').textContent = `adăugat de${NBSP}${it.added_by}${NBSP}· ${whenText(it.created_at)}`;
+  li.querySelector('.meta').textContent = `adăugat de${NBSP}${it.added_by}`;
+
+  const hasPhoto = !!it.photo_path, busy = uploading.has(it.id);
+  li.classList.toggle('has-photo', hasPhoto);
+  li.classList.toggle('busy', busy);
+  li.classList.toggle('open', hasPhoto && openPhotos.has(it.id));
+  if (!hasPhoto) openPhotos.delete(it.id);
+  if (hasPhoto) {
+    const url = photoUrl(it.photo_path);
+    for (const img of li.querySelectorAll('.thumb img, .big img')) if (img.getAttribute('src') !== url) img.src = url;
+  }
 }
 
 // Casuta numelui creste pe cate randuri are nevoie, ca numele lungi sa se vada intregi.
@@ -120,20 +210,19 @@ function render() {
 
   $('todo-count').textContent = todo.length ? `(${todo.length})` : '';
   $('done-count').textContent = done.length ? `(${done.length})` : '';
-  $('todo-empty').hidden = todo.length > 0;
   $('done-section').hidden = done.length === 0;
 }
 
 // ---------- Date din Supabase ----------
 async function load() {
   const { data, error } = await sb.from('shopping_items').select('*').order('created_at', { ascending: false });
-  if (error) { console.error(error); setStatus('Nu pot încărca lista. Verifică internetul.', true); return; }
+  if (error) { console.error(error); problem('Fără conexiune'); return; }
   const fresh = new Map(data.map(r => [r.id, r]));
   for (const [id, local] of items) if (qtyTimers.has(id) && fresh.has(id)) fresh.get(id).qty = local.qty;
   items.clear();
   for (const [id, r] of fresh) items.set(id, r);
   render();
-  setStatus(live ? 'Sincronizat. Modificările apar pe toate telefoanele.' : 'Lista e la zi.');
+  problem('');
 }
 
 async function update(id, changes) {
@@ -146,9 +235,11 @@ async function update(id, changes) {
 }
 
 async function remove(ids) {
-  ids.forEach(id => items.delete(id)); render();
+  const photos = ids.map(id => items.get(id)?.photo_path);
+  ids.forEach(id => { items.delete(id); openPhotos.delete(id); }); render();
   const { error } = await sb.from('shopping_items').delete().in('id', ids);
-  if (error) failed(error);
+  if (error) return failed(error);
+  removeFiles(photos);
 }
 
 // ---------- Adaugare ----------
@@ -180,9 +271,9 @@ $('add-form').addEventListener('submit', async e => {
 function armDelete(btn, label, onConfirm) {
   if (btn.dataset.armed) { clearTimeout(+btn.dataset.timer); onConfirm(); return; }
   btn.dataset.armed = '1';
-  const original = btn.textContent;
+  const original = btn.innerHTML;
   btn.textContent = label;
-  btn.dataset.timer = setTimeout(() => { delete btn.dataset.armed; btn.textContent = original; }, 3000);
+  btn.dataset.timer = setTimeout(() => { delete btn.dataset.armed; btn.innerHTML = original; }, 3000);
 }
 
 function changeQty(id, delta) {
@@ -208,12 +299,15 @@ document.addEventListener('click', e => {
     case 'toggle': if (it) { it.done = !it.done; it.updated_at = new Date().toISOString(); render(); update(id, { done: it.done }); } break;
     case 'minus': changeQty(id, -1); break;
     case 'plus': changeQty(id, +1); break;
-    case 'delete': armDelete(btn, 'Sigur? Apasă iar', () => remove([id])); break;
+    case 'delete': armDelete(btn, 'Sigur?', () => remove([id])); break;
+    case 'camera': photoTarget = id; $('photo-input').click(); break;
+    case 'photo-toggle': if (openPhotos.has(id)) openPhotos.delete(id); else openPhotos.add(id); render(); break;
+    case 'photo-remove': armDelete(btn, 'Sigur?', () => clearPhoto(id)); break;
   }
 });
 
 $('clear-done').addEventListener('click', e => {
-  armDelete(e.currentTarget, 'Sigur? Apasă iar', () => {
+  armDelete(e.currentTarget, 'Sigur?', () => {
     const ids = [...items.values()].filter(i => i.done).map(i => i.id);
     if (ids.length) remove(ids);
   });
@@ -225,7 +319,7 @@ function commitName(input) {
   const it = items.get(id);
   if (!it) return;
   const name = input.value.trim().slice(0, 80);
-  if (!name || name === it.name) { input.value = it.name; return; }
+  if (!name || name === it.name) { input.value = it.name; autosize(input); return; }
   it.name = name; update(id, { name });
 }
 document.addEventListener('keydown', e => {
@@ -239,7 +333,7 @@ document.addEventListener('focusout', e => { if (e.target.classList?.contains('i
 let live = false;
 sb.channel('lista-cumparaturi')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_items' }, payload => {
-    if (payload.eventType === 'DELETE') items.delete(payload.old.id);
+    if (payload.eventType === 'DELETE') { items.delete(payload.old.id); openPhotos.delete(payload.old.id); }
     else {
       const row = payload.new;
       if (qtyTimers.has(row.id)) row.qty = items.get(row.id)?.qty ?? row.qty;
@@ -249,7 +343,8 @@ sb.channel('lista-cumparaturi')
   })
   .subscribe(status => {
     live = status === 'SUBSCRIBED';
-    if (live) setStatus('Sincronizat. Modificările apar pe toate telefoanele.');
+    if (live) problem('');
+    else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') problem('Fără conexiune');
   });
 
 // Rezerva: daca timpul real cade, lista se reincarca la revenirea in pagina si la fiecare 30 de secunde.
