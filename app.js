@@ -128,6 +128,18 @@ $('photo-input').addEventListener('change', e => {
 });
 
 // ---------- Afisare ----------
+// Cand a fost adaugat: "azi, 15:05", "ieri, 15:05" sau "18 nov, 15:05".
+function whenText(iso) {
+  const d = new Date(iso), now = new Date();
+  const time = d.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  if (diff === 0) return `azi,${NBSP}${time}`;
+  if (diff === 1) return `ieri,${NBSP}${time}`;
+  const date = d.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' }).replace('.', '').replace(' ', NBSP);
+  return `${date},${NBSP}${time}`;
+}
+
 function buildItem(id) {
   const li = document.createElement('li');
   li.className = 'item';
@@ -166,7 +178,7 @@ function fillItem(li, it) {
   autosize(input);
   li.querySelector('output').textContent = it.qty;
   li.querySelector('[data-act="minus"]').disabled = it.qty <= 1;
-  li.querySelector('.meta').textContent = `adăugat de${NBSP}${it.added_by}`;
+  li.querySelector('.meta').textContent = `adăugat de${NBSP}${it.added_by}${NBSP}· ${whenText(it.created_at)}`;
 
   const hasPhoto = !!it.photo_path, busy = uploading.has(it.id);
   li.classList.toggle('has-photo', hasPhoto);
