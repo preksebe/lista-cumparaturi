@@ -33,17 +33,58 @@ function saveName(name) {
 }
 function showNameCard(show) {
   $('name-card').hidden = !show;
-  $('main').hidden = show;
   $('who').hidden = show || !me;
   if (show) { $('name-input').value = me; $('name-input').focus(); }
   else { $('who-name').textContent = me; }
+  applyTab();
 }
 $('name-form').addEventListener('submit', e => {
   e.preventDefault();
   const name = $('name-input').value.trim().slice(0, 40);
   if (!name) return;
-  me = name; saveName(name); showNameCard(false); $('add-name').focus();
+  me = name; saveName(name); showNameCard(false);
+  if (currentTab() === 'lista') $('add-name').focus();
 });
+
+// ---------- File: Lista / Retete (adresa #lista sau #retete) ----------
+function currentTab() { return location.hash === '#retete' ? 'retete' : 'lista'; }
+function applyTab() {
+  const ready = !!me && $('name-card').hidden;
+  const tab = currentTab();
+  $('tabs').hidden = !ready;
+  $('main').hidden = !ready || tab !== 'lista';
+  $('recipes-view').hidden = !ready || tab !== 'retete';
+  document.querySelectorAll('.tab').forEach(a => {
+    if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+}
+window.addEventListener('hashchange', applyTab);
+
+// ---------- Grame: "600 g", "1,2 kg" ----------
+function fmtGrams(g) {
+  const n = Number(g);
+  if (!n) return '';
+  if (n >= 1000) return `${(Math.round(n / 100) / 10).toLocaleString('ro-RO')}${NBSP}kg`;
+  return `${(n < 10 ? Math.round(n * 10) / 10 : Math.round(n)).toLocaleString('ro-RO')}${NBSP}g`;
+}
+const sameName = (a, b) => a.trim().toLocaleLowerCase('ro-RO') === b.trim().toLocaleLowerCase('ro-RO');
+
+// Pune un ingredient pe lista. Daca exista deja nebifat (acelasi nume), aduna la el.
+// packages = numarul de pachete (sau null cand nu se stie marimea pachetului), grams = totalul in grame.
+async function addToList(name, packages, grams) {
+  const existing = [...items.values()].find(i => !i.done && sameName(i.name, name));
+  const total = Math.round(grams * 100) / 100;
+  if (existing) {
+    const changes = { grams: Math.round(((Number(existing.grams) || 0) + total) * 100) / 100 };
+    if (packages) changes.qty = Math.min(999, existing.qty + packages);
+    return update(existing.id, changes);
+  }
+  const { data, error } = await sb.from('shopping_items')
+    .insert({ name: name.trim().slice(0, 80), qty: Math.min(999, packages || 1), grams: total || null, added_by: me })
+    .select().single();
+  if (error) return failed(error);
+  items.set(data.id, data); render();
+}
 $('change-name').addEventListener('click', () => showNameCard(true));
 
 // ---------- Semn de problema (apare doar cand ceva nu merge) ----------
@@ -178,7 +219,15 @@ function fillItem(li, it) {
   autosize(input);
   li.querySelector('output').textContent = it.qty;
   li.querySelector('[data-act="minus"]').disabled = it.qty <= 1;
-  li.querySelector('.meta').textContent = `adăugat de${NBSP}${it.added_by}${NBSP}· ${whenText(it.created_at)}`;
+  const grams = fmtGrams(it.grams);
+  const meta = li.querySelector('.meta');
+  meta.textContent = `adăugat de${NBSP}${it.added_by}${NBSP}· ${whenText(it.created_at)}`;
+  if (grams) {
+    const g = document.createElement('strong');
+    g.className = 'grams';
+    g.textContent = grams;
+    meta.prepend(g, `${NBSP}· `);
+  }
 
   const hasPhoto = !!it.photo_path, busy = uploading.has(it.id);
   li.classList.toggle('has-photo', hasPhoto);

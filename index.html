@@ -18,6 +18,10 @@
   <header class="top">
     <h1>Lista de cumpărături</h1>
     <p class="who" id="who" hidden><strong id="who-name"></strong> · <button type="button" class="link" id="change-name">Schimbă numele</button></p>
+    <nav class="tabs" id="tabs" hidden>
+      <a href="#lista" class="tab" data-tab="lista">Listă</a>
+      <a href="#retete" class="tab" data-tab="retete">Rețete</a>
+    </nav>
   </header>
 
   <section class="card name-card" id="name-card" hidden>
@@ -58,11 +62,17 @@
     </section>
   </main>
 
+  <section id="recipes-view" hidden>
+    <ul class="recipes" id="recipes"></ul>
+    <p class="empty" id="recipes-empty" hidden>Nicio rețetă</p>
+  </section>
+
   <p class="status" id="status" role="status" hidden></p>
   <input type="file" id="photo-input" accept="image/*" capture="environment" hidden>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
+<script src="recipes.js"></script>
 </body>
 </html>

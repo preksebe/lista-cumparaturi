@@ -5,9 +5,16 @@ iar lângă fiecare produs apare cine l-a adăugat. Cantitatea se schimbă cu + 
 în listă, iar ce s-a luat se bifează. Modificările apar pe loc pe toate telefoanele.
 
 - Pagină statică (`index.html`, `style.css`, `app.js`), găzduită pe Vercel.
-- Datele stau în Supabase, în tabelul `shopping_items` (`supabase/schema.sql`, apoi `supabase/poze.sql`, se rulează o dată).
+- Datele stau în Supabase, în tabelul `shopping_items` (`supabase/schema.sql`, `supabase/poze.sql`, apoi `supabase/retete.sql`, se rulează o dată).
 - Pozele (micșorate în browser la maximum 1200 px, WebP) stau în bucket-ul `lista-poze` din Supabase Storage.
 - În browser e doar cheia publică (publishable). Regulile din baza de date îi permit să lucreze
   doar cu tabelul listei și cu bucket-ul ei de poze.
 
 Fără logare, oricine are linkul poate adăuga, modifica sau șterge. E ales intenționat.
+
+## Rețete
+
+Fila „Rețete” arată rețetele comune, salvate pentru o porție. Alegi porțiile, iar „Adaugă în listă” pune
+ingredientele pe listă. Mărimea pachetului se ține pe ingredient (tabelul `package_sizes`): pachete = gramajul
+total împărțit la pachet, rotunjit în sus. Dacă ingredientul e deja pe listă și nebifat, se adună la el.
+Rețetele noi se introduc direct în baza de date (exemplu la finalul fișierului `supabase/retete.sql`).
