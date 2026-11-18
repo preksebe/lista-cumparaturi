@@ -57,6 +57,8 @@ function applyTab() {
   document.querySelectorAll('.tab').forEach(a => {
     if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
+  // Fila tocmai a devenit vizibila: abia acum casutele de text au o latime reala si se pot masura.
+  requestAnimationFrame(() => { if (typeof autosizeVisible === 'function') autosizeVisible(); });
 }
 window.addEventListener('hashchange', applyTab);
 
@@ -240,14 +242,23 @@ function fillItem(li, it) {
   }
 }
 
-// Casuta numelui creste pe cate randuri are nevoie, ca numele lungi sa se vada intregi.
+// Casutele de text cresc pe cate randuri au nevoie, ca numele lungi sa se vada intregi.
+// Unde browserul stie "field-sizing: content" (vezi style.css), o face singur si nu masuram nimic.
+// Altfel masuram din JS, dar NUMAI cand casuta se vede: un element ascuns (fila inactiva, reteta inchisa)
+// are inaltimea 0, iar valoarea aceea ar ramane lipita dupa ce devine vizibil.
+const NATIVE_AUTOSIZE = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('field-sizing', 'content');
 function autosize(el) {
+  if (NATIVE_AUTOSIZE) { if (el.style.height) el.style.height = ''; return; }
   if (!el.isConnected) { requestAnimationFrame(() => el.isConnected && autosize(el)); return; }
+  if (!el.getClientRects().length) return; // ascuns: se masoara cand devine vizibil (applyTab, deschiderea retetei)
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
 }
+function autosizeVisible() {
+  document.querySelectorAll('textarea.item-name, textarea.recipe-name, textarea.ing-name').forEach(autosize);
+}
 document.addEventListener('input', e => { if (e.target.classList?.contains('item-name')) autosize(e.target); });
-window.addEventListener('resize', () => document.querySelectorAll('.item-name').forEach(autosize));
+window.addEventListener('resize', autosizeVisible);
 
 function placeInOrder(container, list) {
   list.forEach((it, i) => {
